@@ -1,0 +1,37 @@
+# Builds and tests the .deb the same way Thallium's release.yml does:
+# debian:trixie with rustup (trixie's rustc is too old for this crate).
+# Publishes nothing; the .deb is a workflow artifact only.
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  deb:
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential debhelper curl ca-certificates git
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          curl -fsSL --max-time 120 https://sh.rustup.rs \
+            | sh -s -- -y --profile minimal --default-toolchain stable --no-modify-path
+      - name: Test
+        run: |
+          . "$HOME/.cargo/env"
+          cargo test --locked
+      - name: Build .deb
+        run: |
+          . "$HOME/.cargo/env"
+          dpkg-buildpackage -us -uc -b
+          mkdir -p dist && mv ../autoterm_*.deb dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: autoterm-deb
+          path: dist/*.deb

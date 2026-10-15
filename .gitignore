@@ -4,3 +4,10 @@
 /debian/files
 /debian/*.substvars
 /debian/debhelper-build-stamp
+
+# never published
+.env*
+*.key
+*.pem
+secrets/
+.claude/
