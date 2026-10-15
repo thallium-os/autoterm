@@ -1,3 +1,17 @@
+autoterm (0.1.1-1) unstable; urgency=medium
+
+  * Commands that can run other commands (env, fd, rg) and history are
+    no longer corrected silently; they ask first like everything else.
+  * fish: abbreviations are no longer suggested. fish can't run one by
+    name, so accepting it failed and taught a fix that never works.
+  * Suggestions nobody answered aren't logged, so a password typed at
+    the prompt by mistake doesn't reach the disk.
+  * New autoterm reset: the way out when the log fails its checksum,
+    which an interrupted write could cause, after which nothing could
+    be recorded again.
+
+ -- Thallium Project <36neelansh@gmail.com>  Fri, 16 Oct 2026 03:33:20 +0530
+
 autoterm (0.1.0-1) unstable; urgency=medium
 
   * Initial release: typo correction for unknown commands in fish and

@@ -19,7 +19,9 @@ pub fn osa(a: &str, b: &str) -> usize {
     for i in 1..=n {
         for j in 1..=m {
             let cost = usize::from(a[i - 1] != b[j - 1]);
-            d[i][j] = (d[i - 1][j] + 1).min(d[i][j - 1] + 1).min(d[i - 1][j - 1] + cost);
+            d[i][j] = (d[i - 1][j] + 1)
+                .min(d[i][j - 1] + 1)
+                .min(d[i - 1][j - 1] + cost);
             if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
                 d[i][j] = d[i][j].min(d[i - 2][j - 2] + 1);
             }
@@ -43,7 +45,9 @@ pub fn candidates(extra: impl IntoIterator<Item = String>) -> HashSet<String> {
     let mut out: HashSet<String> = extra.into_iter().filter(|s| !s.is_empty()).collect();
     if let Some(path) = env::var_os("PATH") {
         for dir in env::split_paths(&path) {
-            let Ok(entries) = fs::read_dir(&dir) else { continue };
+            let Ok(entries) = fs::read_dir(&dir) else {
+                continue;
+            };
             for entry in entries.flatten() {
                 if let Ok(name) = entry.file_name().into_string() {
                     out.insert(name);

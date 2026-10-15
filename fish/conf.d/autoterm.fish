@@ -9,11 +9,12 @@ if functions -q fish_command_not_found; and not functions -q __autoterm_prev_cnf
     functions -c fish_command_not_found __autoterm_prev_cnf
 end
 
+# Not abbreviations: fish expands those only while typing, so `$fix` could
+# never run one and the "accept" would teach a fix that fails.
 function __autoterm_suggest -a word
     begin
         builtin -n
         functions -n
-        abbr --list
     end 2>/dev/null | autoterm suggest --stdin $word
 end
 

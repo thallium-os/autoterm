@@ -14,7 +14,8 @@ const USAGE: &str = "usage:
                                       --stdin: extra command names, one per line
   autoterm record <accept|reject|override> <typo> <fix>
   autoterm log [N]                    last N audit entries (default 20)
-  autoterm verify                     check log checksum";
+  autoterm verify                     check log checksum
+  autoterm reset [--yes]              delete the log and everything learned";
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {
@@ -49,11 +50,14 @@ fn run(args: Vec<String>) -> Result<ExitCode> {
             let Some(fix) = matcher::best(typo, &matcher::candidates(extra), &scores) else {
                 return Ok(ExitCode::FAILURE);
             };
-            let _ = store.append(Event::Shown, typo, &fix);
+            // Not logged: a password typed at the prompt by mistake would
+            // land here. Only answers the user gave are recorded.
             println!("{}\t{fix}", safety::classify(&fix).as_str());
         }
         ["record", ev, typo, fix] => {
-            let Some(ev) = Event::parse(ev).filter(|e| *e != Event::Shown) else { bail!("{USAGE}") };
+            let Some(ev) = Event::parse(ev).filter(|e| *e != Event::Shown) else {
+                bail!("{USAGE}")
+            };
             // Overrides come from "the next command that worked"; only keep
             // ones that plausibly are a fix for the typo.
             if ev == Event::Override
@@ -81,6 +85,30 @@ fn run(args: Vec<String>) -> Result<ExitCode> {
         ["verify"] => {
             store.verify()?;
             println!("ok");
+        }
+        ["reset", rest @ ..] => {
+            let yes = match rest {
+                [] => false,
+                ["--yes"] => true,
+                _ => bail!("{USAGE}"),
+            };
+            if !yes {
+                if !io::stdin().is_terminal() {
+                    bail!("refusing to reset without a terminal; pass --yes");
+                }
+                eprint!(
+                    "autoterm: delete {} and everything learned? [y/N] ",
+                    store.log_path().display()
+                );
+                let mut answer = String::new();
+                io::stdin().read_line(&mut answer)?;
+                if !matches!(answer.trim(), "y" | "Y" | "yes") {
+                    eprintln!("autoterm: nothing deleted");
+                    return Ok(ExitCode::FAILURE);
+                }
+            }
+            store.reset()?;
+            eprintln!("autoterm: log deleted; learning starts over");
         }
         _ => {
             eprintln!("{USAGE}");

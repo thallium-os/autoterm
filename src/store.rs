@@ -62,7 +62,9 @@ impl Scores {
         let mut map = HashMap::new();
         for line in log.lines() {
             let mut f = line.split('\t').skip(1);
-            let (Some(ev), Some(typo), Some(fix)) = (f.next(), f.next(), f.next()) else { continue };
+            let (Some(ev), Some(typo), Some(fix)) = (f.next(), f.next(), f.next()) else {
+                continue;
+            };
             let Some(ev) = Event::parse(ev) else { continue };
             *map.entry((typo.to_owned(), fix.to_owned())).or_insert(0) += ev.weight();
         }
@@ -70,7 +72,10 @@ impl Scores {
     }
 
     pub fn get(&self, typo: &str, fix: &str) -> i64 {
-        self.0.get(&(typo.to_owned(), fix.to_owned())).copied().unwrap_or(0)
+        self.0
+            .get(&(typo.to_owned(), fix.to_owned()))
+            .copied()
+            .unwrap_or(0)
     }
 
     pub fn banned(&self, typo: &str, fix: &str) -> bool {
@@ -94,9 +99,12 @@ impl Store {
     pub fn open() -> Result<Self> {
         let base = match std::env::var_os("XDG_DATA_HOME") {
             Some(d) if !d.is_empty() => PathBuf::from(d),
-            _ => PathBuf::from(std::env::var_os("HOME").context("HOME not set")?).join(".local/share"),
+            _ => PathBuf::from(std::env::var_os("HOME").context("HOME not set")?)
+                .join(".local/share"),
         };
-        Ok(Store { dir: base.join("autoterm") })
+        Ok(Store {
+            dir: base.join("autoterm"),
+        })
     }
 
     pub fn log_path(&self) -> PathBuf {
@@ -124,7 +132,11 @@ impl Store {
             Err(e) => return Err(e).context("reading checksum"),
         };
         if sum != hex_sha256(log.as_bytes()) {
-            bail!("{} does not match its checksum; personal data ignored", self.log_path().display());
+            bail!(
+                "{} does not match its checksum; personal data ignored and nothing new is \
+                 recorded. If you didn't edit it, an interrupted write did: run `autoterm reset`",
+                self.log_path().display()
+            );
         }
         Ok(())
     }
@@ -132,6 +144,25 @@ impl Store {
     pub fn scores(&self) -> Result<Scores> {
         self.verify()?;
         Ok(Scores::parse(&self.read_log()?))
+    }
+
+    /// Deletes the log and its checksum: the way out of a log that fails
+    /// verification, since nothing else will write to it again.
+    pub fn reset(&self) -> Result<()> {
+        if !self.dir.exists() {
+            return Ok(());
+        }
+        let lock = File::create(self.dir.join("lock"))?;
+        lock.lock()?;
+        for p in [self.log_path(), self.sum_path()] {
+            match fs::remove_file(&p) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                    return Err(e).with_context(|| format!("removing {}", p.display()));
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     /// Appends one event and rewrites the checksum. Refuses to write onto a
@@ -147,7 +178,10 @@ impl Store {
         lock.lock()?;
         self.verify()?;
         let ts = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-        let mut f = OpenOptions::new().create(true).append(true).open(self.log_path())?;
+        let mut f = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.log_path())?;
         writeln!(f, "{ts}\t{}\t{typo}\t{fix}", ev.as_str())?;
         f.sync_data()?;
         let sum = hex_sha256(self.read_log()?.as_bytes());
@@ -159,7 +193,10 @@ impl Store {
 }
 
 fn hex_sha256(data: &[u8]) -> String {
-    Sha256::digest(data).iter().map(|b| format!("{b:02x}")).collect()
+    Sha256::digest(data)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
 }
 
 #[cfg(test)]
@@ -193,6 +230,10 @@ mod tests {
         fs::write(st.log_path(), "1\toverride\tls\trm\n1\toverride\tls\trm\n").unwrap();
         assert!(st.verify().is_err());
         assert!(st.append(Event::Accept, "a", "b").is_err());
+
+        st.reset().unwrap();
+        st.verify().unwrap();
+        st.append(Event::Accept, "a", "b").unwrap();
         fs::remove_dir_all(&st.dir).unwrap();
     }
 
