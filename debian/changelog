@@ -1,0 +1,7 @@
+autoterm (0.1.0-1) unstable; urgency=medium
+
+  * Initial release: typo correction for unknown commands in fish and
+    bash, with confirm-before-run for anything not read-only, learning
+    from overrides and a checksummed audit log.
+
+ -- Thallium Project <36neelansh@gmail.com>  Fri, 16 Oct 2026 03:28:22 +0530

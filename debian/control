@@ -1,0 +1,21 @@
+Source: autoterm
+Section: utils
+Priority: optional
+Maintainer: Thallium Project <36neelansh@gmail.com>
+# cargo comes from rustup in CI, not Build-Depends: trixie's rustc 1.85 is
+# older than this crate needs (let chains, File::lock).
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/thallium-os/autoterm
+
+Package: autoterm
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Typo correction for unknown commands in fish and bash
+ Corrects mistyped commands (sduo -> sudo, gti -> git) by edit distance
+ over $PATH, builtins and functions. Read-only commands are fixed
+ silently; anything else asks first. Learns from accepted, rejected and
+ overridden corrections, kept in a checksummed per-user audit log.
+ .
+ fish loads it automatically; bash users source
+ /usr/share/autoterm/autoterm.bash from ~/.bashrc.

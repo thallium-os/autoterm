@@ -1,0 +1,62 @@
+# PRD: Autocorrection for Terminals
+
+## Summary
+A local, privacy-first autocorrection layer built on top of the fish shell. It corrects mistyped commands (transpositions, misspellings) using a fast lookup database, and learns from individual user behavior over time. Designed to work well on modest hardware (baseline: 5th-gen i5, 4GB RAM).
+
+## Problem
+Standard shell tab-completion only handles prefix matching — it doesn't recover from typos like character transpositions (e.g. `sduo` instead of `sudo`). Existing fuzzy-correction tools either don't exist for shells, or aren't safe enough to be merged upstream into fish, because blind autocorrection on destructive commands (`rm`, `dd`, `chmod`) is dangerous — a bad match could silently turn a harmless command into a catastrophic one.
+
+## Goals
+- Fast, fully local, fully offline autocorrection for shell commands
+- Personalized learning: adapt to an individual user's typing patterns and repeated corrections
+- Safe by design: never silently "correct" a destructive command
+- Lightweight enough to run well on old/low-resource hardware
+- Auditable and tamper-evident
+
+## Non-Goals
+- Not a cloud-based or LLM-based autocorrect (v1)
+- Not a general NLP/semantic engine — scoped strictly to shell commands, flags, and paths
+- Not a replacement for fish's existing completion system — this augments it
+
+## Architecture (Two-Tier)
+
+**Tier 1 — Base Lookup Table**
+- Pre-generated from common command sets (targeting ~2,000–3,000 commands, based on a full Ubuntu Desktop install with dev tools)
+- All edit-distance variants (distance 2–3) precomputed per command
+- Stored in RocksDB: low RAM footprint, disk-backed, fast key-value lookups
+- Updatable when new commands/packages are installed
+
+**Tier 2 — Personal Learning Layer**
+- Logs commands typed, corrections shown, and corrections accepted/rejected
+- Builds per-user confidence scores over time
+- If a user repeatedly overrides a suggestion with the same alternative, the system learns the new mapping
+
+**Fish Integration**
+- Hooks into fish's tab-completion/command-not-found flow
+- Queries RocksDB for fuzzy matches, ranked by confidence
+- Returns suggestions inline
+
+**Safety Layer**
+- Whitelist of "safe to autocorrect silently": read-only/non-destructive commands (`ls`, `cd`, `grep`, `cat`, etc.)
+- Destructive/high-privilege commands (`rm`, `dd`, `sudo`, `chmod`, `mkfs`, etc.) are never silently corrected — correction is shown, and requires explicit confirmation (Enter to accept / Escape to cancel)
+- Dry-run mode: option to preview a corrected command without executing it
+- Full audit log of every correction shown, accepted, or rejected
+
+**Integrity**
+- Checksums on the local database to detect tampering
+- Note: this protects against tampering detection, not against a root-level kernel compromise — if the system is rooted via a kernel CVE, no local encryption/checksum fully mitigates that. Primary defense against that class of risk is keeping the kernel patched.
+
+## Storage Choice
+- RocksDB selected over JSON (won't scale past a few thousand commands), SQLite (too slow at required speeds), and Redis (too RAM-hungry for constrained hardware)
+- Estimated footprint: ~50–100MB including base table, variants, and months of personal history
+
+## Open Questions / Risks
+- How to reliably distinguish "safe" vs "destructive" commands as the whitelist scales
+- Confirmation-prompt UX for sudo-prefixed commands specifically, since a large share of daily commands are run with sudo
+- Where personal learning data lives long-term as scope grows from ~500 → ~1,000 → ~50,000 commands
+
+## Success Criteria
+- Typo correction latency imperceptible in normal terminal use
+- Zero silent execution of a destructive command different from what the user intended
+- Noticeable reduction in retyped commands over time as the personal layer learns
+

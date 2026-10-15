@@ -1,0 +1,6 @@
+/target
+/debian/autoterm/
+/debian/.debhelper/
+/debian/files
+/debian/*.substvars
+/debian/debhelper-build-stamp

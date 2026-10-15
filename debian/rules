@@ -1,0 +1,20 @@
+#!/usr/bin/make -f
+
+PKG := debian/autoterm
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release --locked
+
+override_dh_auto_test:
+	cargo test --release --locked
+
+override_dh_auto_install:
+	install -Dm0755 target/release/autoterm $(PKG)/usr/bin/autoterm
+	install -Dm0644 fish/conf.d/autoterm.fish $(PKG)/usr/share/fish/vendor_conf.d/autoterm.fish
+	install -Dm0644 bash/autoterm.bash $(PKG)/usr/share/autoterm/autoterm.bash
+
+override_dh_auto_clean:
+	rm -rf target
